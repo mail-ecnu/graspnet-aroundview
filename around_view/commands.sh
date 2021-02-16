@@ -1,6 +1,6 @@
 # CUDA_VISIBLE_DEVICES=0 
-python grasp_det.py \
+python __init__.py \
     --dump_dir ../logs/dump_rs \
     --camera realsense \
-    --scene_id 100 \
-    --view_id 0
+    --method random \
+    --dataset_root /data/Benchmark/graspnet
