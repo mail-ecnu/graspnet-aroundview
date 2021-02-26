@@ -13,7 +13,7 @@ class AroundViewGraspEval(GraspNetEval):
         super(AroundViewGraspEval, self).__init__(root, camera, split)
         self.method = method
 
-    def unparallel_eval_scenes(self, scene_ids, dump_folder, proc = 2):
+    def parallel_eval_scenes(self, scene_ids, dump_folder, proc = 2):
         '''
         not parallel, just for debug, commit it when coding finished
         '''
@@ -126,6 +126,9 @@ class AroundViewGraspEval(GraspNetEval):
                         grasp_accuracy[k,fric_idx] = np.sum(((score_list[0:k+1]<=fric) & (score_list[0:k+1]>0)).astype(int))/(k+1)
 
             print('\rMean Accuracy for scene:%04d = %.3f' % (scene_id, 100.0 * np.mean(grasp_accuracy[:,:])), end='', flush=True)
+            print(grasp_confidence[indices])
+            print(collision_mask_list)
+            import ipdb; ipdb.set_trace()
             scene_accuracy.append(grasp_accuracy)
         if not return_list:
             return scene_accuracy

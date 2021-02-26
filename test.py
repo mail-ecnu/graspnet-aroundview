@@ -114,5 +114,5 @@ def evaluate():
     np.save(save_dir, res)
 
 if __name__=='__main__':
-    inference()
+    # inference()
     evaluate()
