@@ -10,7 +10,7 @@ class AroundViewGrasp(Grasp):
         args[:-1]: args for Grasp
         args[-1]: ann_id
         '''
-        super().__init__(args[1:])
+        super().__init__(args[:ssssssssssss-1])
         self.ann_id = args[-1]
 
     def __repr__(self):
@@ -25,7 +25,7 @@ class AroundViewGrasp(Grasp):
         assert idx in range(256)
         self._ann_id = idx
 
-    @staticmethod
+    @staticmethods
     def convert_ann_id_matrix(original_ann_id, target_ann_id):
         # TODO: cslnb!
         return np.eye(4)  # no trans
@@ -55,7 +55,7 @@ class AroundViewGraspGroup(GraspGroup):
                 repr += AroundViewGrasp(self.grasp_group_array[i], self.ann_ids[i]).__repr__() + '\n'
             repr += '......\n'
             for i in range(3):
-                repr += AroundViewGrasp(self.grasp_group_array[-(3-i)], self.ann_ids).__repr__() + '\n'
+                repr += AroundViewGrasp(self.grasp_group_array[-(3-i)], self.ann_ids[-(3-i)]).__repr__() + '\n'
         return repr + '----------'
 
     @property
