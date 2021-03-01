@@ -1,12 +1,11 @@
 import os
 import argparse
 
-from graspnetAPI import GraspGroup
-
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(ROOT_DIR)
 
 from around_view.evaluation import AroundViewGraspEval
+from around_view.grasp import AroundViewGraspGroup
 
 class TestTransformGraspNetEval(AroundViewGraspEval):
 
@@ -41,8 +40,9 @@ class TestTransformGraspNetEval(AroundViewGraspEval):
         collision_list_list = []
 
         # let ann_id == 0, and transform it to all ann_ids
+        grasp_group_0 = AroundViewGraspGroup().from_npy(os.path.join(dump_folder,get_scene_name(scene_id), self.camera, '%04d.npy' % (0,)))
         for ann_id in range(256):
-            grasp_group = GraspGroup().from_npy(os.path.join(dump_folder,get_scene_name(scene_id), self.camera, '%04d.npy' % (ann_id,)))
+            grasp_group = grasp_group_0.to_veiw(ann_id)
             _, pose_list, camera_pose, align_mat = self.get_model_poses(scene_id, ann_id)
             table_trans = transform_points(table, np.linalg.inv(np.matmul(align_mat, camera_pose)))
 
@@ -78,7 +78,7 @@ class TestTransformGraspNetEval(AroundViewGraspEval):
                 t.points = o3d.utility.Vector3dVector(table_trans)
                 model_list = generate_scene_model(self.root, 'scene_%04d' % scene_id , ann_id, return_poses=False, align=False, camera=self.camera)
                 import copy
-                gg = GraspGroup(copy.deepcopy(grasp_list))
+                gg = AroundViewGraspGroup(copy.deepcopy(grasp_list))
                 scores = np.array(score_list)
                 scores = scores / 2 + 0.5 # -1 -> 0, 0 -> 0.5, 1 -> 1
                 scores[collision_mask_list] = 0.3
