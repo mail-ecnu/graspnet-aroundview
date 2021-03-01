@@ -1,3 +1,5 @@
+import os
+import numpy as np
 from collections import Counter
 from graspnetAPI.grasp import Grasp, GraspGroup
 
@@ -26,6 +28,7 @@ class AroundViewGrasp(Grasp):
     @staticmethod
     def convert_ann_id_matrix(original_ann_id, target_ann_id):
         # TODO: cslnb!
+        return np.eye(4)  # no trans
         raise NotImplementedError('hi, cls :)')
 
     def to_view(self, target_ann_id):
@@ -57,11 +60,11 @@ class AroundViewGraspGroup(GraspGroup):
 
     @property
     def ann_ids(self):
-        return self.ann_ids
+        return self._ann_ids
 
     @ann_ids.setter
     def ann_ids(self, ids):
-        assert len(ids) = self.__len__()
+        assert len(ids) == self.__len__()
         self._ann_ids = ids
 
     def to_view(self, target_ann_id):
