@@ -1,7 +1,12 @@
 import os
+import sys
 import argparse
+import numpy as np
 
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from graspnetAPI.utils.config import get_config
+from graspnetAPI.utils.eval_utils import get_scene_name, create_table_points, voxel_sample_points, transform_points, eval_grasp
+
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(ROOT_DIR)
 
 from around_view.evaluation import AroundViewGraspEval
@@ -42,7 +47,7 @@ class TestTransformGraspNetEval(AroundViewGraspEval):
         # let ann_id == 0, and transform it to all ann_ids
         grasp_group_0 = AroundViewGraspGroup().from_npy(os.path.join(dump_folder,get_scene_name(scene_id), self.camera, '%04d.npy' % (0,)))
         for ann_id in range(256):
-            grasp_group = grasp_group_0.to_veiw(ann_id)
+            grasp_group = grasp_group_0.to_view(ann_id)
             _, pose_list, camera_pose, align_mat = self.get_model_poses(scene_id, ann_id)
             table_trans = transform_points(table, np.linalg.inv(np.matmul(align_mat, camera_pose)))
 
@@ -110,6 +115,7 @@ class TestTransformGraspNetEval(AroundViewGraspEval):
                         grasp_accuracy[k,fric_idx] = np.sum(((score_list[0:k+1]<=fric) & (score_list[0:k+1]>0)).astype(int))/(k+1)
 
             print('\rMean Accuracy for scene:%04d ann:%04d = %.3f' % (scene_id, ann_id, 100.0 * np.mean(grasp_accuracy[:,:])), end='', flush=True)
+            import ipdb; ipdb.set_trace()
             scene_accuracy.append(grasp_accuracy)
         if not return_list:
             return scene_accuracy
@@ -117,16 +123,20 @@ class TestTransformGraspNetEval(AroundViewGraspEval):
             return scene_accuracy, grasp_list_list, score_list_list, collision_list_list
 
 
-def evaluate():
-    ge = GraspNetEval(root=cfgs.dataset_root, camera=cfgs.camera, split='test')
+def evaluate(cfgs):
+    ge = TestTransformGraspNetEval(root=cfgs.dataset_root, camera=cfgs.camera, split='test')
     res, ap = ge.eval_all(cfgs.dump_dir, proc=cfgs.num_workers)
 
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset_root', required=True, help='Dataset root')
-    parser.add_argument('--dump_dir', required=True, help='Dump dir to save outputs')
-    parser.add_argument('--camera', required=True, help='Camera split [realsense/kinect]')
+    # python test_trans_mat.py --dataset_root /data/Benchmark/graspnet --dump_dir ../../logs/dump_rs --camera kinect
+    parser.add_argument('--dataset_root', default='/data/Benchmark/graspnet', help='Dataset root')
+    parser.add_argument('--dump_dir', default='../../logs/dump_rs', help='Dump dir to save outputs')
+    parser.add_argument('--camera', default='realsense', help='Camera split [realsense/kinect]')
+    # parser.add_argument('--dataset_root', required=True, help='Dataset root')
+    # parser.add_argument('--dump_dir', required=True, help='Dump dir to save outputs')
+    # parser.add_argument('--camera', required=True, help='Camera split [realsense/kinect]')
     parser.add_argument('--num_workers', type=int, default=30, help='Number of workers used in evaluation [default: 30]')
     cfgs = parser.parse_args()
 
