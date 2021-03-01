@@ -29,7 +29,7 @@ class AroundViewGrasp(Grasp):
     def convert_ann_id_matrix(original_ann_id, target_ann_id):
         # TODO: cslnb!
         return np.eye(4)  # no trans
-        raise NotImplementedError('hi, cls :)')
+        raise NotImplementedError('hi, csl :)')
 
     def to_view(self, target_ann_id):
         T = AroundViewGrasp.convert_ann_id_matrix(self.ann_id, target_ann_id)
