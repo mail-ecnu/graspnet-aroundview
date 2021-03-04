@@ -10,7 +10,7 @@ class AroundViewGrasp(Grasp):
         args[:-1]: args for Grasp
         args[-1]: ann_id
         '''
-        super().__init__(args[:-1])
+        super().__init__(*args[:-1])
         self._group = group
         self.ann_id = args[-1]
 
@@ -70,14 +70,14 @@ class AroundViewGraspGroup(GraspGroup):
     def convert_ann_id_matrix(self, original_ann_id, target_ann_id):
         original_camera_pose = self._camera_poses[original_ann_id]
         target_camera_pose = self._camera_poses[target_ann_id]
-        return np.matmul(target_camera_pose, np.linalg.inv(original_camera_pose))
+        return np.matmul(np.linalg.inv(target_camera_pose), original_camera_pose)
 
     def to_view(self, target_ann_id):
         if Counter(self.ann_ids)[self.ann_ids[0]] == self.__len__():
             # all grasps are in the same ann_id.
             T = self.convert_ann_id_matrix(self.ann_ids[0], target_ann_id)
-            import ipdb;ipdb.set_trace()
             self.transform(T)
+            self.ann_ids[:] = target_ann_id
             return self
         else:
             # for-loop, but currently we dont need this shit.
