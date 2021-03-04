@@ -2,9 +2,11 @@ import os
 import sys
 import argparse
 import numpy as np
+import open3d as o3d
 
 from graspnetAPI.utils.config import get_config
 from graspnetAPI.utils.eval_utils import get_scene_name, create_table_points, voxel_sample_points, transform_points, eval_grasp
+from graspnetAPI.utils.utils import generate_scene_model
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(ROOT_DIR)
@@ -47,7 +49,8 @@ class TestTransformGraspNetEval(AroundViewGraspEval):
         # let ann_id == 0, and transform it to all ann_ids
         camera_poses_path = os.path.join(self.root, 'scenes', get_scene_name(scene_id), self.camera, 'camera_poses.npy')
         grasp_group_0 = AroundViewGraspGroup().from_npy(os.path.join(dump_folder,get_scene_name(scene_id), self.camera, '%04d.npy' % (0,)), camera_poses_path)
-        for ann_id in range(256):
+        grasp_group_0 = grasp_group_0[:2]
+        for ann_id in range(1, 256):
             grasp_group = grasp_group_0.to_view(ann_id)
             _, pose_list, camera_pose, align_mat = self.get_model_poses(scene_id, ann_id)
             table_trans = transform_points(table, np.linalg.inv(np.matmul(align_mat, camera_pose)))
@@ -59,8 +62,9 @@ class TestTransformGraspNetEval(AroundViewGraspEval):
             gg_array[min_width_mask,1] = 0
             gg_array[max_width_mask,1] = max_width
             grasp_group.grasp_group_array = gg_array
-
+            
             grasp_list, score_list, collision_mask_list = eval_grasp(grasp_group, model_sampled_list, dexmodel_list, pose_list, config, table=table_trans, voxel_size=0.008, TOP_K = TOP_K)
+            import ipdb; ipdb.set_trace()
 
             # remove empty
             grasp_list = [x for x in grasp_list if len(x) != 0]
@@ -94,8 +98,8 @@ class TestTransformGraspNetEval(AroundViewGraspEval):
                 pcd = self.loadScenePointCloud(scene_id, self.camera, ann_id)
 
                 o3d.visualization.draw_geometries([pcd, *grasps_geometry])
-                o3d.visualization.draw_geometries([pcd, *grasps_geometry, *model_list])
-                o3d.visualization.draw_geometries([*grasps_geometry, *model_list, t])
+                # o3d.visualization.draw_geometries([pcd, *grasps_geometry, *model_list])
+                # o3d.visualization.draw_geometries([*grasps_geometry, *model_list, t])
             
             # sort in scene level
             grasp_confidence = grasp_list[:,0]
