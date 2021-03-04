@@ -45,7 +45,8 @@ class TestTransformGraspNetEval(AroundViewGraspEval):
         collision_list_list = []
 
         # let ann_id == 0, and transform it to all ann_ids
-        grasp_group_0 = AroundViewGraspGroup().from_npy(os.path.join(dump_folder,get_scene_name(scene_id), self.camera, '%04d.npy' % (0,)))
+        camera_poses_path = os.path.join(self.root, 'scenes', get_scene_name(scene_id), self.camera, 'camera_poses.npy')
+        grasp_group_0 = AroundViewGraspGroup().from_npy(os.path.join(dump_folder,get_scene_name(scene_id), self.camera, '%04d.npy' % (0,)), camera_poses_path)
         for ann_id in range(256):
             grasp_group = grasp_group_0.to_view(ann_id)
             _, pose_list, camera_pose, align_mat = self.get_model_poses(scene_id, ann_id)
