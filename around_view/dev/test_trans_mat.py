@@ -9,8 +9,8 @@ from graspnetAPI.utils.eval_utils import get_scene_name, create_table_points, vo
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(ROOT_DIR)
 
-from around_view.evaluation import AroundViewGraspEval
-from around_view.grasp import AroundViewGraspGroup
+from around_view.utils.evaluation import AroundViewGraspEval
+from around_view.utils.grasp import AroundViewGraspGroup
 
 class TestTransformGraspNetEval(AroundViewGraspEval):
 

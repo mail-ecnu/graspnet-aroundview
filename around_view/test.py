@@ -10,10 +10,10 @@ sys.path.append(ROOT_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'dataset'))
 
 from graspnet_dataset import GraspNetDataset
-from around_view.grasp_det import views2grasps
-from around_view.view_find import RandomViewSelector, FixedViewSelector, RNNViewSelector, RLViewSelector
-from around_view.grasp_mix import GraspMixer
-from around_view.evaluation import AroundViewGraspEval
+from around_view.utils.grasp_det import views2grasps
+from around_view.utils.view_find import RandomViewSelector, FixedViewSelector, RNNViewSelector, RLViewSelector
+from around_view.utils.grasp_mix import GraspMixer
+from around_view.utils.evaluation import AroundViewGraspEval
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_root', required=True, help='Dataset root')
