@@ -49,7 +49,7 @@ class TestTransformGraspNetEval(AroundViewGraspEval):
         # let ann_id == 0, and transform it to all ann_ids
         camera_poses_path = os.path.join(self.root, 'scenes', get_scene_name(scene_id), self.camera, 'camera_poses.npy')
         grasp_group_0 = AroundViewGraspGroup().from_npy(os.path.join(dump_folder,get_scene_name(scene_id), self.camera, '%04d.npy' % (0,)), camera_poses_path)
-        grasp_group_0 = grasp_group_0[:2]
+        # grasp_group_0 = grasp_group_0[:2]
         for ann_id in range(1, 256):
             grasp_group = grasp_group_0.to_view(ann_id)
             _, pose_list, camera_pose, align_mat = self.get_model_poses(scene_id, ann_id)
@@ -64,7 +64,6 @@ class TestTransformGraspNetEval(AroundViewGraspEval):
             grasp_group.grasp_group_array = gg_array
             
             grasp_list, score_list, collision_mask_list = eval_grasp(grasp_group, model_sampled_list, dexmodel_list, pose_list, config, table=table_trans, voxel_size=0.008, TOP_K = TOP_K)
-            import ipdb; ipdb.set_trace()
 
             # remove empty
             grasp_list = [x for x in grasp_list if len(x) != 0]
