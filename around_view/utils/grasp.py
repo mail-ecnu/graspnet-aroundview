@@ -31,9 +31,15 @@ class AroundViewGrasp(Grasp):
         T = self._group.convert_ann_id_matrix(self.ann_id, target_ann_id)
         self.transform(T)
         self.ann_id = target_ann_id
+        return self
 
 
 class AroundViewGraspGroup(GraspGroup):
+
+    def __init__(self, ann_ids=None, camera_poses=None, *args):
+        super().__init__(*args)
+        self._ann_ids = copy.deepcopy(ann_ids)
+        self.camera_poses = copy.deepcopy(camera_poses)
 
     def from_npy(self, npy_file_path, camera_poses_path):
         super().from_npy(npy_file_path)
@@ -58,21 +64,16 @@ class AroundViewGraspGroup(GraspGroup):
     def __getitem__(self, index):
         '''
         **Input:**
-
         - index: int, slice, list or np.ndarray.
 
         **Output:**
-
         - if index is int, return Grasp instance.
-
         - if index is slice, np.ndarray or list, return GraspGroup instance.
         '''
         if type(index) == int:
             return AroundViewGrasp(self, self.ann_ids[index], self.grasp_group_array[index])
         elif type(index) == slice:
-            graspgroup = AroundViewGraspGroup()
-            graspgroup.ann_ids = self.ann_ids[index]
-            graspgroup.camera_poses = self.camera_poses
+            graspgroup = AroundViewGraspGroup(self.ann_ids[index], self.camera_poses)
             graspgroup.grasp_group_array = copy.deepcopy(self.grasp_group_array[index])
             return graspgroup
         # elif type(index) == np.ndarray:
@@ -81,7 +82,6 @@ class AroundViewGraspGroup(GraspGroup):
         #     return AroundViewGraspGroup(self.grasp_group_array[index])
         else:
             raise TypeError('unknown type "{}" for calling __getitem__ for AroundViewGraspGroup'.format(type(index)))
-
 
     @property
     def ann_ids(self):
@@ -103,7 +103,41 @@ class AroundViewGraspGroup(GraspGroup):
             T = self.convert_ann_id_matrix(self.ann_ids[0], target_ann_id)
             self.transform(T)
             self.ann_ids[:] = target_ann_id
-            return self
         else:
-            # for-loop, but currently we dont need this shit.
-            raise NotImplementedError('Lazy cww')
+            for i in range(self.__len__()):
+                g = self[i].to_view(target_ann_id)
+                self.grasp_group_array[i] = g.grasp_array
+                # self.ann_ids[i] = g.ann_id
+            self.ann_ids[:] = target_ann_id
+        return self
+
+    def add(self, element):
+        '''
+        **Input:**
+        - element: AroundViewGrasp instance or AroundViewGraspGroup instance.
+        '''
+        if isinstance(element, AroundViewGrasp):
+            self.ann_ids = np.concatenate((self.ann_ids, element.ann_id.reshape((0))))
+            self.grasp_group_array = np.concatenate((self.grasp_group_array, element.grasp_array.reshape((-1, GRASP_ARRAY_LEN))))
+        elif isinstance(element, AroundViewGraspGroup):
+            self.ann_ids = np.concatenate((self.ann_ids, element.ann_ids))
+            self.grasp_group_array = np.concatenate((self.grasp_group_array, element.grasp_group_array))
+        else:
+            raise TypeError('Unknown type:{}'.format(element))
+        return self
+
+    def sort_by_score(self, reverse=False):
+        '''
+        **Input:**
+        - reverse: bool of order, if False, from high to low, if True, from low to high.
+
+        **Output:**
+        - no output but sort the grasp group.
+        '''
+        score = self.grasp_group_array[:,0]
+        index = np.argsort(score)
+        if not reverse:
+            index = index[::-1]
+        self.grasp_group_array = self.grasp_group_array[index]
+        self.ann_ids = self.ann_ids[index]
+        return self

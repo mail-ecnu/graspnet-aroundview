@@ -10,7 +10,7 @@ sys.path.append(ROOT_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'dataset'))
 
 from graspnet_dataset import GraspNetDataset
-from around_view.utils.grasp_det import views2grasps
+from around_view.utils.grasp_det import GraspDetector
 from around_view.utils.view_find import RandomViewSelector, FixedViewSelector, RNNViewSelector, RLViewSelector
 from around_view.utils.grasp_mix import GraspMixer
 from around_view.utils.evaluation import AroundViewGraspEval
@@ -33,10 +33,6 @@ TEST_DATASET = GraspNetDataset(cfgs.dataset_root, valid_obj_idxs=None, grasp_lab
                                num_points=cfgs.num_point, remove_outlier=True, augment=False, load_label=False)
 SCENE_LIST = TEST_DATASET.scene_list()
 SCENE_LIST = sorted(set(SCENE_LIST), key=SCENE_LIST.index)
-
-print(len(SCENE_LIST))
-
-
 # ------------------------------------------------------------------------- GLOBAL CONFIG END
 
 def please_choose_your_hero(cfgs):
@@ -55,11 +51,12 @@ def please_choose_your_hero(cfgs):
 
 def inference():
     agent = please_choose_your_hero(cfgs)
+    detector = GraspDetector(cfgs.dataset_root, cfgs.dump_dir, cfgs.camera)
     mixer = GraspMixer()
 
     for scene_id in tqdm([int(x[-4:]) for x in SCENE_LIST]):
         views = agent.get_views()
-        grasps_from_multi_views = views2grasps(scene_id, views, cfgs)
+        grasps_from_multi_views = detector.views2grasps(scene_id, views)
         grasp_group = mixer.mix_grasps(grasps_from_multi_views)
 
         save_dir = os.path.join(cfgs.dump_dir, SCENE_LIST[scene_id-100], cfgs.camera)
@@ -77,5 +74,5 @@ def evaluate():
 
 
 if __name__ == '__main__':
-    inference()
+    # inference()
     evaluate()

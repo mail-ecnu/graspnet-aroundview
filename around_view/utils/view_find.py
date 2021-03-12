@@ -7,7 +7,7 @@ class ViewSelector():
     __metaclass__ = ABCMeta
 
     def __init__(self, cfgs):
-        self.views_len = 256  # 16
+        self.views_len = 16
         self.all_ann_ids = np.array([x*(256 // self.views_len) for x in range(self.views_len)])  # [0: 16)
         self.selected_mask = np.zeros(self.views_len)
         self.selected_views = list()
