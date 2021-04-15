@@ -16,6 +16,6 @@ class GraspMixer():
         for g in grasps:
             grasp_group.add(g)
         grasp_group.sort_by_score()
-        grasp_group = grasp_group.to_view(0)
+        # grasp_group = grasp_group.to_view(0)
         grasp_group = grasp_group[: unit_len]
         return grasp_group
