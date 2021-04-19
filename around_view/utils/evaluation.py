@@ -7,13 +7,15 @@ from graspnetAPI.utils.config import get_config
 from graspnetAPI.utils.utils import generate_scene_model
 from graspnetAPI.utils.eval_utils import get_scene_name, create_table_points, voxel_sample_points, transform_points, eval_grasp
 
+from around_view.utils.grasp import AroundViewGrasp, AroundViewGraspGroup
 
-class AroundViewGraspEval_(GraspNetEval):
+
+class AroundViewGraspEval(GraspNetEval):
     def __init__(self, root, camera, split='test', method='random'):
         super(AroundViewGraspEval, self).__init__(root, camera, split)
         self.method = method
 
-    def parallel_eval_scenes(self, scene_ids, dump_folder, proc = 2):
+    def unparallel_eval_scenes(self, scene_ids, dump_folder, proc = 2):
         '''
         not parallel, just for debug, commit it when coding finished
         '''
@@ -57,22 +59,23 @@ class AroundViewGraspEval_(GraspNetEval):
 
         dump_dir = os.path.join(dump_folder, get_scene_name(scene_id), self.camera)
         views = np.load(os.path.join(dump_dir, f'{self.method}_views.npy'))
-        grasp_group = GraspGroup().from_npy(os.path.join(dump_dir, f'{self.method}_grasps.npy'))
+        camera_poses_path = os.path.join(self.root, 'scenes', get_scene_name(scene_id), self.camera, 'camera_poses.npy')
+        grasp_group = AroundViewGraspGroup().from_npy(os.path.join(dump_dir, f'{self.method}_'), camera_poses_path)
 
-        for ann_id in range(256):
-            grasp_group = GraspGroup().from_npy(os.path.join(dump_folder,get_scene_name(scene_id), self.camera, '%04d.npy' % (ann_id,)))
+        for ann_id in np.unique(grasp_group.ann_ids):
+            sub_grasp_group = grasp_group[np.argwhere(grasp_group.ann_ids==ann_id).flatten()]
             _, pose_list, camera_pose, align_mat = self.get_model_poses(scene_id, ann_id)
             table_trans = transform_points(table, np.linalg.inv(np.matmul(align_mat, camera_pose)))
 
             # clip width to [0,max_width]
-            gg_array = grasp_group.grasp_group_array
+            gg_array = sub_grasp_group.grasp_group_array
             min_width_mask = (gg_array[:,1] < 0)
             max_width_mask = (gg_array[:,1] > max_width)
             gg_array[min_width_mask,1] = 0
             gg_array[max_width_mask,1] = max_width
-            grasp_group.grasp_group_array = gg_array
+            sub_grasp_group.grasp_group_array = gg_array
 
-            grasp_list, score_list, collision_mask_list = eval_grasp(grasp_group, model_sampled_list, dexmodel_list, pose_list, config, table=table_trans, voxel_size=0.008, TOP_K = TOP_K)
+            grasp_list, score_list, collision_mask_list = eval_grasp(sub_grasp_group, model_sampled_list, dexmodel_list, pose_list, config, table=table_trans, voxel_size=0.008, TOP_K = TOP_K)
 
             # remove empty
             grasp_list = [x for x in grasp_list if len(x) != 0]
@@ -85,7 +88,6 @@ class AroundViewGraspEval_(GraspNetEval):
                 grasp_list_list.append([])
                 score_list_list.append([])
                 collision_list_list.append([])
-                print('\rMean Accuracy for scene:{} ann:{}='.format(scene_id, ann_id),np.mean(grasp_accuracy[:,:]), end='')
                 continue
 
             # concat into scene level
@@ -108,35 +110,44 @@ class AroundViewGraspEval_(GraspNetEval):
                 o3d.visualization.draw_geometries([pcd, *grasps_geometry])
                 o3d.visualization.draw_geometries([pcd, *grasps_geometry, *model_list])
                 o3d.visualization.draw_geometries([*grasps_geometry, *model_list, t])
-            
-            # sort in scene level
-            grasp_confidence = grasp_list[:,0]
-            indices = np.argsort(-grasp_confidence)
-            grasp_list, score_list, collision_mask_list = grasp_list[indices], score_list[indices], collision_mask_list[indices]
 
             grasp_list_list.append(grasp_list)
             score_list_list.append(score_list)
             collision_list_list.append(collision_mask_list)
 
-            #calculate AP
-            grasp_accuracy = np.zeros((TOP_K,len(list_coe_of_friction)))
-            for fric_idx, fric in enumerate(list_coe_of_friction):
-                for k in range(0,TOP_K):
-                    if k+1 > len(score_list):
-                        grasp_accuracy[k,fric_idx] = np.sum(((score_list<=fric) & (score_list>0)).astype(int))/(k+1)
-                    else:
-                        grasp_accuracy[k,fric_idx] = np.sum(((score_list[0:k+1]<=fric) & (score_list[0:k+1]>0)).astype(int))/(k+1)
+        grasp_list = np.concatenate(grasp_list_list)
+        score_list = np.concatenate(score_list_list)
+        collision_mask_list = np.concatenate(collision_list_list)
 
-            print('\rMean Accuracy for scene:%04d ann:%04d = %.3f' % (scene_id, ann_id, 100.0 * np.mean(grasp_accuracy[:,:])), end='', flush=True)
-            scene_accuracy.append(grasp_accuracy)
+        # sort in scene level
+        grasp_confidence = grasp_list[:,0]
+        indices = np.argsort(-grasp_confidence)
+        grasp_list, score_list, collision_mask_list = grasp_list[indices], score_list[indices], collision_mask_list[indices]
+
+        #calculate AP
+        grasp_accuracy = np.zeros((TOP_K,len(list_coe_of_friction)))
+        for fric_idx, fric in enumerate(list_coe_of_friction):
+            for k in range(0,TOP_K):
+                if k+1 > len(score_list):
+                    grasp_accuracy[k,fric_idx] = np.sum(((score_list<=fric) & (score_list>0)).astype(int))/(k+1)
+                else:
+                    grasp_accuracy[k,fric_idx] = np.sum(((score_list[0:k+1]<=fric) & (score_list[0:k+1]>0)).astype(int))/(k+1)
+
+        # print('\rMean Accuracy for scene:%04d = %.3f' % (scene_id, 100.0 * np.mean(grasp_accuracy[:,:])))
+        print('\rMean Accuracy for scene:%04d = %.3f' % (scene_id, 100.0 * np.mean(grasp_accuracy[:,:])), end='', flush=True)
+        scene_accuracy.append(grasp_accuracy)
         if not return_list:
             return scene_accuracy
         else:
             return scene_accuracy, grasp_list_list, score_list_list, collision_list_list
 
 
-# class AroundViewGraspEval_TransMat(GraspNetEval):
-class AroundViewGraspEval(GraspNetEval):
+class AroundViewGraspEval_TransMat(GraspNetEval):
+# class AroundViewGraspEval(GraspNetEval):
+    '''
+        PlanA for AroundView, which has csl's transMat
+        but seems a little bug
+    '''
     def __init__(self, root, camera, split='test', method='random'):
         super(AroundViewGraspEval, self).__init__(root, camera, split)
         self.method = method
@@ -254,7 +265,7 @@ class AroundViewGraspEval(GraspNetEval):
                         grasp_accuracy[k,fric_idx] = np.sum(((score_list[0:k+1]<=fric) & (score_list[0:k+1]>0)).astype(int))/(k+1)
 
             print('\rMean Accuracy for scene:%04d = %.3f' % (scene_id, 100.0 * np.mean(grasp_accuracy[:,:])), end='', flush=True)
-            import ipdb; ipdb.set_trace()
+            # import ipdb; ipdb.set_trace()
             scene_accuracy.append(grasp_accuracy)
         if not return_list:
             return scene_accuracy

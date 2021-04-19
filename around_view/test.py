@@ -54,7 +54,7 @@ def inference():
     detector = GraspDetector(cfgs.dataset_root, cfgs.dump_dir, cfgs.camera)
     mixer = GraspMixer()
 
-    for scene_id in tqdm([int(x[-4:]) for x in SCENE_LIST]):
+    for scene_id in tqdm([int(x[-4:]) for x in SCENE_LIST]):  # -4 for string slice
         views = agent.get_views()
         grasps_from_multi_views = detector.views2grasps(scene_id, views)
         grasp_group = mixer.mix_grasps(grasps_from_multi_views)
@@ -62,7 +62,7 @@ def inference():
         save_dir = os.path.join(cfgs.dump_dir, SCENE_LIST[scene_id-100], cfgs.camera)
         save_path = os.path.join(save_dir, f'{cfgs.method}_views.npy')
         np.save(save_path, views)
-        save_path = os.path.join(save_dir, f'{cfgs.method}_grasps.npy')
+        save_path = os.path.join(save_dir, f'{cfgs.method}_')
         grasp_group.save_npy(save_path)
 
 

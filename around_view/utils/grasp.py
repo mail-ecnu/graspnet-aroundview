@@ -42,11 +42,18 @@ class AroundViewGraspGroup(GraspGroup):
         self.camera_poses = copy.deepcopy(camera_poses)
 
     def from_npy(self, npy_file_path, camera_poses_path):
-        super().from_npy(npy_file_path)
-        ann_id = int(os.path.splitext(os.path.basename(npy_file_path))[0])
-        self._ann_ids = np.full(self.__len__(), ann_id)
+        super().from_npy(npy_file_path + 'grasps.npy')
+        if npy_file_path[-1] == '_':  # '../logs/dump_rs/scene_0100/realsense/random_'
+            self._ann_ids = np.load(npy_file_path + 'ann_ids.npy')
+        else:  # '../../logs/dump_rs/scene_0101/realsense/0000.npy'
+            ann_id = int(os.path.splitext(os.path.basename(npy_file_path))[0])
+            self._ann_ids = np.full(self.__len__(), ann_id)
         self.camera_poses = np.load(camera_poses_path)
         return self
+
+    def save_npy(self, npy_file_path):
+        super().save_npy(npy_file_path + 'grasps.npy')
+        np.save(npy_file_path + 'ann_ids.npy', self.ann_ids)
 
     def __repr__(self):
         repr = '----------\nGrasp Group, Number={}:\n'.format(self.__len__())
@@ -72,14 +79,10 @@ class AroundViewGraspGroup(GraspGroup):
         '''
         if type(index) == int:
             return AroundViewGrasp(self, self.ann_ids[index], self.grasp_group_array[index])
-        elif type(index) == slice:
+        elif type(index) == slice or type(index) == np.ndarray or type(index) == list:
             graspgroup = AroundViewGraspGroup(self.ann_ids[index], self.camera_poses)
             graspgroup.grasp_group_array = copy.deepcopy(self.grasp_group_array[index])
             return graspgroup
-        # elif type(index) == np.ndarray:
-        #     return AroundViewGraspGroup(self.grasp_group_array[index])
-        # elif type(index) == list:
-        #     return AroundViewGraspGroup(self.grasp_group_array[index])
         else:
             raise TypeError('unknown type "{}" for calling __getitem__ for AroundViewGraspGroup'.format(type(index)))
 
