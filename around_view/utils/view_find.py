@@ -39,16 +39,16 @@ class RandomViewSelector(ViewSelector):
         idx = -1
         while idx == -1 or idx in self.selected_views:
             idx = random.randint(0, self.views_len-1)
-        idx = 1
+        # idx = 1
         self.selected_mask[idx] = 1
         self.selected_views.append(idx)
         return idx
 
 
 class FixedViewSelector(ViewSelector):
-    def next_view(self):
-        # TODO
-        raise NotImplementedError
+    def get_views(self):
+        self.selected_views = [i for i in range(self.views_len)]
+        return self.all_ann_ids[self.selected_views]
 
 
 class RNNViewSelector(ViewSelector):

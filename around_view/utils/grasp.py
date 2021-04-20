@@ -42,10 +42,11 @@ class AroundViewGraspGroup(GraspGroup):
         self.camera_poses = copy.deepcopy(camera_poses)
 
     def from_npy(self, npy_file_path, camera_poses_path):
-        super().from_npy(npy_file_path + 'grasps.npy')
         if npy_file_path[-1] == '_':  # '../logs/dump_rs/scene_0100/realsense/random_'
+            super().from_npy(npy_file_path + 'grasps.npy')
             self._ann_ids = np.load(npy_file_path + 'ann_ids.npy')
         else:  # '../../logs/dump_rs/scene_0101/realsense/0000.npy'
+            super().from_npy(npy_file_path)
             ann_id = int(os.path.splitext(os.path.basename(npy_file_path))[0])
             self._ann_ids = np.full(self.__len__(), ann_id)
         self.camera_poses = np.load(camera_poses_path)

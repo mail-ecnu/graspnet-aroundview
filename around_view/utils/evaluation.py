@@ -24,7 +24,7 @@ class AroundViewGraspEval(GraspNetEval):
             res_list.append(self.eval_scene(scene_id, dump_folder))
         scene_acc_list = []
         for res in res_list:
-            scene_acc_list.append(res.get())
+            scene_acc_list.append(res)
         return scene_acc_list
 
     def eval_scene(self, scene_id, dump_folder, TOP_K = 50, return_list = False,vis = False, max_width = 0.1):
@@ -133,8 +133,8 @@ class AroundViewGraspEval(GraspNetEval):
                 else:
                     grasp_accuracy[k,fric_idx] = np.sum(((score_list[0:k+1]<=fric) & (score_list[0:k+1]>0)).astype(int))/(k+1)
 
-        # print('\rMean Accuracy for scene:%04d = %.3f' % (scene_id, 100.0 * np.mean(grasp_accuracy[:,:])))
-        print('\rMean Accuracy for scene:%04d = %.3f' % (scene_id, 100.0 * np.mean(grasp_accuracy[:,:])), end='', flush=True)
+        print('\rAccuracy for scene:%04d = %.3f' % (scene_id, 100.0 * np.mean(grasp_accuracy[:,:])))
+        # print('\rAccuracy for scene:%04d = %.3f' % (scene_id, 100.0 * np.mean(grasp_accuracy[:,:])), end='', flush=True)
         scene_accuracy.append(grasp_accuracy)
         if not return_list:
             return scene_accuracy

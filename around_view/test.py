@@ -68,11 +68,11 @@ def inference():
 
 def evaluate():
     ge = AroundViewGraspEval(root=cfgs.dataset_root, camera=cfgs.camera, split='test', method=cfgs.method)
-    res, ap = ge.eval_all(cfgs.dump_dir, proc=cfgs.num_workers)
+    res, ap = ge.eval_seen(cfgs.dump_dir, proc=cfgs.num_workers)
     save_dir = os.path.join(cfgs.dump_dir, f'ap_{cfgs.method}.npy')
     np.save(save_dir, res)
 
 
 if __name__ == '__main__':
-    # inference()
+    inference()
     evaluate()
