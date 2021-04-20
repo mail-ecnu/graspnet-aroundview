@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from prettytable import PrettyTable
 
 from graspnetAPI import GraspNetEval
 from graspnetAPI.grasp import GraspGroup
@@ -140,6 +141,28 @@ class AroundViewGraspEval(GraspNetEval):
             return scene_accuracy
         else:
             return scene_accuracy, grasp_list_list, score_list_list, collision_list_list
+
+    def eval_seen(self, dump_folder, proc = 2):
+        '''
+        **Input:**
+        - dump_folder: string of the folder that saves the npy files.
+        - proc: int of the number of processes to use to evaluate.
+
+        **Output:**
+        - res: numpy array of the detailed accuracy.
+        - ap: float of the AP for seen split.
+        '''
+        res = np.array(self.parallel_eval_scenes(scene_ids = list(range(100, 130)), dump_folder = dump_folder, proc = proc))
+        print('\nEvaluation Result:\n----------\n{}, AP Seen:\n'.format(self.camera))
+
+        res_f = np.mean(res, axis=(0, 1, 2))
+        ap = np.mean(res_f)
+        table = PrettyTable(['AP','AP_0.8','AP_0.4'])
+        def _(x):
+            return f'{100*x:.2f}'
+        table.add_row([_(ap), _(res_f[3]), _(res_f[1])])
+        print(table)
+        return res, ap
 
 
 class AroundViewGraspEval_TransMat(GraspNetEval):

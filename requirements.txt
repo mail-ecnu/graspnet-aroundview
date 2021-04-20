@@ -5,3 +5,4 @@ scipy
 open3d==0.8
 Pillow
 tqdm
+prettytable==2.1.0
