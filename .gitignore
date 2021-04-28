@@ -1,5 +1,5 @@
 **/__pycache__/**
-*.ipynb
+
 **/.ipynb_checkpoints/**
 *.npy
 *.npz
@@ -15,3 +15,5 @@
 logs
 dataset/tolerance
 dataset/tolerance.tar
+.empty
+.vscode

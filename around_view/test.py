@@ -11,7 +11,7 @@ sys.path.append(os.path.join(ROOT_DIR, 'dataset'))
 
 from graspnet_dataset import GraspNetDataset
 from around_view.utils.grasp_det import GraspDetector
-from around_view.utils.view_find import RandomViewSelector, FixedViewSelector, RNNViewSelector, RLViewSelector
+from around_view.utils.view_find import RandomViewSelector, FixedViewSelector, RNNViewSelector, RLViewSelector, SeqViewSelector
 from around_view.utils.grasp_mix import GraspMixer
 from around_view.utils.evaluation import AroundViewGraspEval
 
@@ -49,21 +49,25 @@ def please_choose_your_hero(cfgs):
     return agent
 
 
+def fowrard_and_save(scene_id, agent, detector, mixer):
+    views = agent.get_views()
+    grasp_group = detector.views2grasps(scene_id, views)
+    grasp_group = mixer.mix_grasps(grasp_group)
+
+    save_dir = os.path.join(cfgs.dump_dir, SCENE_LIST[scene_id-100], cfgs.camera)
+    save_path = os.path.join(save_dir, f'{cfgs.method}_views.npy')
+    np.save(save_path, views)
+    save_path = os.path.join(save_dir, f'{cfgs.method}_')
+    grasp_group.save_npy(save_path)
+
+
 def inference():
     agent = please_choose_your_hero(cfgs)
     detector = GraspDetector(cfgs.dataset_root, cfgs.dump_dir, cfgs.camera)
     mixer = GraspMixer()
 
     for scene_id in tqdm([int(x[-4:]) for x in SCENE_LIST]):  # -4 for string slice
-        views = agent.get_views()
-        grasps_from_multi_views = detector.views2grasps(scene_id, views)
-        grasp_group = mixer.mix_grasps(grasps_from_multi_views)
-
-        save_dir = os.path.join(cfgs.dump_dir, SCENE_LIST[scene_id-100], cfgs.camera)
-        save_path = os.path.join(save_dir, f'{cfgs.method}_views.npy')
-        np.save(save_path, views)
-        save_path = os.path.join(save_dir, f'{cfgs.method}_')
-        grasp_group.save_npy(save_path)
+        fowrard_and_save(scene_id, agent, detector, mixer)
 
 
 def evaluate():
@@ -73,6 +77,27 @@ def evaluate():
     np.save(save_dir, res)
 
 
+def step_on_seq():
+    agent = SeqViewSelector(cfgs)
+    detector = GraspDetector(cfgs.dataset_root, cfgs.dump_dir, cfgs.camera)
+    mixer = GraspMixer()
+
+    aps = list()
+    for num in range(1, 257):
+        for scene_id in [int(x[-4:]) for x in SCENE_LIST]:  # -4 for string slice        
+            agent.max_view = num
+            fowrard_and_save(scene_id, agent, detector, mixer)
+
+        ge = AroundViewGraspEval(root=cfgs.dataset_root, camera=cfgs.camera, split='test', method=cfgs.method)
+        res, ap = ge.eval_seen(cfgs.dump_dir, proc=cfgs.num_workers)
+        print(f'num = {num}, ap={100*ap:.2f}')
+        aps.append(ap)
+    print(aps)
+
+
 if __name__ == '__main__':
-    inference()
-    evaluate()
+    if cfgs.method != 'seq':
+        inference()
+        evaluate()
+    else:
+        step_on_seq()

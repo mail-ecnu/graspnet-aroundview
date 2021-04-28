@@ -61,3 +61,14 @@ class RLViewSelector(ViewSelector):
     def next_view(self):
         # TODO
         raise NotImplementedError
+
+
+class SeqViewSelector(ViewSelector):
+
+    def __init__(self, cfgs):
+        self.views_len = 256
+        self.all_ann_ids = np.array([x for x in range(self.views_len)])
+        self.max_view = 256
+
+    def get_views(self):
+        return self.all_ann_ids[:self.max_view]
