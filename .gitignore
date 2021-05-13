@@ -17,3 +17,4 @@ dataset/tolerance
 dataset/tolerance.tar
 .empty
 .vscode
+__pycache__
