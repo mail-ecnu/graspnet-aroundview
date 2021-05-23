@@ -52,6 +52,7 @@ if not os.path.exists(cfgs.log_dir):
 LOG_FOUT = open(os.path.join(cfgs.log_dir, 'log_train.txt'), 'a')
 LOG_FOUT.write(str(cfgs)+'\n')
 def log_string(out_str):
+    out_str = f'[{str(datetime.now())}] {out_str}'
     LOG_FOUT.write(out_str+'\n')
     LOG_FOUT.flush()
     print(out_str)
@@ -62,8 +63,8 @@ def my_worker_init_fn(worker_id):
     pass
 
 # Create Dataset and Dataloader
-TRAIN_DATASET = GraspNetDataset(cfgs.dataset_root, camera=cfgs.camera, split='train', num_points=cfgs.num_point, augment=True)
-TEST_DATASET = GraspNetDataset(cfgs.dataset_root, camera=cfgs.camera, split='test_seen', num_points=cfgs.num_point, augment=False)
+TRAIN_DATASET = AroundViewDataset(cfgs.dataset_root, camera=cfgs.camera, split='train', num_points=cfgs.num_point, augment=True)
+TEST_DATASET = AroundViewDataset(cfgs.dataset_root, camera=cfgs.camera, split='test_seen', num_points=cfgs.num_point, augment=False)
 print(f'len(train data) = {len(TRAIN_DATASET)};  len(test data): {len(TEST_DATASET)}')
 TRAIN_DATALOADER = DataLoader(TRAIN_DATASET, batch_size=cfgs.batch_size, shuffle=True,
     num_workers=4, worker_init_fn=my_worker_init_fn, collate_fn=collate_fn)
@@ -114,6 +115,8 @@ def train_one_epoch():
     net.train()
     for batch_idx, batch_data in enumerate(TRAIN_DATALOADER):
         # get data -> to(device)
+        print(len(TRAIN_DATALOADER))
+        import ipdb; ipdb.set_trace()
         for key in batch_data:
             if 'list' in key:
                 for i in range(len(batch_data[key])):
@@ -121,12 +124,14 @@ def train_one_epoch():
                         batch_data[key][i][j] = batch_data[key][i][j].to(device)
             else:
                 batch_data[key] = batch_data[key].to(device)
-        ''' get label and to(device)
-        '''
+        
+        import ipdb; ipdb.set_trace()
 
         # Forward pass
         end_views = net(batch_data)
 
+        ''' get label -> to(device)
+        '''
         # Compute loss and gradients, update parameters.
         loss, end_views = get_loss(end_views)
         loss.backward()
@@ -190,7 +195,7 @@ def train(start_epoch):
         EPOCH_CNT = epoch
         log_string('**** EPOCH %03d ****' % (epoch))
         log_string('Current learning rate: %f'%(get_current_lr(epoch)))
-        log_string(str(datetime.now()))
+        # log_string(str(datetime.now()))
         # Reset numpy seed.
         # REF: https://github.com/pytorch/pytorch/issues/5059
         np.random.seed()
