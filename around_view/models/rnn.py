@@ -1,5 +1,6 @@
 import os
 import sys
+import numpy as np
 
 import torch
 import torch.nn as nn
@@ -18,7 +19,7 @@ def random_weight(shape):
     """
     fan_in = shape[0]  # here, is a fake 'fan_in'
     # randn is standard normal distribution generator. 
-    w = torch.randn(shape, device=device, dtype=dtype) * np.sqrt(2. / fan_in)
+    w = torch.randn(shape, dtype=torch.float32) * np.sqrt(2. / fan_in)
     w.requires_grad = True
     return w
 
@@ -26,7 +27,7 @@ def random_weight(shape):
 class PreMLP(nn.Module):
     def __init__(self, points_num=256, feat_dim=1024, out_dim=512):
         super().__init__()
-        self.w1 = random_weight((points_num))
+        self.w1 = random_weight([points_num])
         self.w2 = nn.Sequential(
             nn.ReLU(),
             nn.Linear(feat_dim, out_dim),
@@ -47,7 +48,7 @@ class RNNController(nn.Module):
         super().__init__()
         self.backbone = Pointnet2Backbone(input_feature_dim)
         self.pre_MLP = PreMLP(256, 1024, 512)
-        import ipdb; ipdb.set_trace()
+        # import ipdb; ipdb.set_trace()
 
         # batch_first – If True, then the input and output tensors are 
         #               provided as (batch, seq, feature). Default: False

@@ -2,8 +2,9 @@ import random
 import numpy as np
 from abc import ABCMeta, abstractmethod
 
-
-VIEW_LEN = 16
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(ROOT_DIR)
+from around_view.uitls.dataset import VIEW_LEN, ALL_ANN_IDs
 
 
 class ViewSelector():
@@ -11,7 +12,7 @@ class ViewSelector():
 
     def __init__(self, cfgs):
         self.views_len = VIEW_LEN
-        self.all_ann_ids = np.array([x*(256 // self.views_len) for x in range(self.views_len)])  # [0: 16)
+        self.all_ann_ids = ALL_ANN_IDs  # [0, 16, 32, 48...)
         self.selected_mask = np.zeros(self.views_len)
         self.selected_views = list()
 
