@@ -10,33 +10,59 @@ sys.path.append(ROOT_DIR)
 from models.backbone import Pointnet2Backbone
 
 
-class PreRNN(nn.Module):
-    def __init__(self, points_num, feat_dim, out_dim):
-        super().__init__()
+def random_weight(shape):
+    """
+    Create random Tensors for weights; setting requires_grad=True means that we
+    want to compute gradients for these Tensors during the backward pass.
+    We use a fake 'Kaiming normalization': sqrt(2 / fan_in)
+    """
+    fan_in = shape[0]  # here, is a fake 'fan_in'
+    # randn is standard normal distribution generator. 
+    w = torch.randn(shape, device=device, dtype=dtype) * np.sqrt(2. / fan_in)
+    w.requires_grad = True
+    return w
 
-    def forward(self, seed_features):
-        pass
+
+class PreMLP(nn.Module):
+    def __init__(self, points_num=256, feat_dim=1024, out_dim=512):
+        super().__init__()
+        self.w1 = random_weight((points_num))
+        self.w2 = nn.Sequential(
+            nn.ReLU(),
+            nn.Linear(feat_dim, out_dim),
+            nn.ReLU(),
+        )
+
+    def forward(self, x):
+        ''' x: seed_features of `b * [256, 1024]`
+            out: features of `b * [out_dim]`
+        '''
+        x = x.permute(0, 2, 1)
+        x = torch.matmul(x, self.pre_mat)
+        return self.w2(x)
 
 
 class RNNController(nn.Module):
     def __init__(self, input_feature_dim=0):
         super().__init__()
-        # see it later
+        self.backbone = Pointnet2Backbone(input_feature_dim)
+        self.pre_MLP = PreMLP(256, 1024, 512)
         import ipdb; ipdb.set_trace()
 
-        self.backbone = Pointnet2Backbone(input_feature_dim)
-        self.pre_rnn = nn.Sequential(
-            nn.Linear(784, 100),
-            nn.Flatten(),
-            nn.ReLU(),
-            nn.Linear(100, 10)
-        )
-        self.rnn = nn.LSTM(10, 20, 2)
+        # batch_first – If True, then the input and output tensors are 
+        #               provided as (batch, seq, feature). Default: False
+        self.h0 = 0
+        self.c0 = 0
+        self.rnn = nn.LSTM(512, 256, 2)
+        
 
-    def forward(self, end_points):
+    def forward(self, end_points, hidden_state, cell):
         pointcloud = end_points['point_clouds']
         seed_features, seed_xyz, end_points = self.backbone(pointcloud, end_points)
+        x = self.pre_MLP(seed_features)
 
         import ipdb; ipdb.set_trace()
-        
+
+        x, (h_t, c_t) = self.rnn(x, (hidden_state, cell))
+        import ipdb; ipdb.set_trace()
         return seed_features
