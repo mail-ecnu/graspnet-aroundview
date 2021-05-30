@@ -44,8 +44,10 @@ class PreMLP(nn.Module):
 
 
 class RNNController(nn.Module):
-    def __init__(self, input_feature_dim=0):
+    def __init__(self, device, input_feature_dim=0):
         super().__init__()
+        self.device = device
+
         self.backbone = Pointnet2Backbone(input_feature_dim)
         self.pre_MLP = PreMLP(256, 1024, 512)
         # import ipdb; ipdb.set_trace()
@@ -55,15 +57,21 @@ class RNNController(nn.Module):
         self.h0 = 0
         self.c0 = 0
         self.rnn = nn.LSTM(512, 256, 2)
-        
 
-    def forward(self, end_points, hidden_state, cell):
-        pointcloud = end_points['point_clouds']
-        seed_features, seed_xyz, end_points = self.backbone(pointcloud, end_points)
+    def _rnn_step(end_points, hidden_state, cell):
+        idx = -1
+        seed_features, seed_xyz, end_points = self.backbone(pointcloud)
         x = self.pre_MLP(seed_features)
-
-        import ipdb; ipdb.set_trace()
-
+        # seed_features
         x, (h_t, c_t) = self.rnn(x, (hidden_state, cell))
+        return idx
+
+    def forward(self, point_clouds):
+        init_view = torch.from_numpy(np.zeros(end_points.shape[0])).to(self.device)
+        import ipdb; ipdb.set_trace()
+        x_0 = 0
+        h_0 = 0
+        c_0 = 0
+
         import ipdb; ipdb.set_trace()
         return seed_features

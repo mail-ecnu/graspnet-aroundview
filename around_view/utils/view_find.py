@@ -1,10 +1,12 @@
+import os
+import sys
 import random
 import numpy as np
 from abc import ABCMeta, abstractmethod
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(ROOT_DIR)
-from around_view.uitls.dataset import VIEW_LEN, ALL_ANN_IDs
+from around_view.utils.dataset import VIEW_LEN, ALL_ANN_IDs
 
 
 class ViewSelector():

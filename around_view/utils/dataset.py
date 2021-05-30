@@ -2,11 +2,16 @@ import os
 import sys
 import numpy as np
 from tqdm import tqdm
+from PIL import Image
+import scipy.io as scio
+
+import torch
+from torch._six import container_abcs
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(ROOT_DIR)
 from dataset.graspnet_dataset import GraspNetDataset
-
+from data_utils import CameraInfo, create_point_cloud_from_depth_image, get_workspace_mask
 
 VIEW_LEN = 16
 ALL_ANN_IDs = np.array([x*(256 // VIEW_LEN) for x in range(VIEW_LEN)])
@@ -20,12 +25,13 @@ class AroundViewDataset(GraspNetDataset):
         super().__init__(root, None, None, camera='kinect', split=split, 
             num_points=num_points, remove_outlier=True, augment=augment, load_label=False)
 
-        self.colorpath = [self.colorpath[i: i+256] for i in range(0, 25600, 256)]
-        self.depthpath = [self.depthpath[i: i+256] for i in range(0, 25600, 256)]
-        self.labelpath = [self.labelpath[i: i+256] for i in range(0, 25600, 256)]
-        self.metapath = [self.metapath[i: i+256] for i in range(0, 25600, 256)]
-        self.scenename = [self.scenename[i: i+256] for i in range(0, 25600, 256)]
-        self.frameid = [self.frameid[i: i+256] for i in range(0, 25600, 256)]
+        all_len = len(self.colorpath)
+        self.colorpath = [self.colorpath[i: i+256] for i in range(0, all_len, 256)]
+        self.depthpath = [self.depthpath[i: i+256] for i in range(0, all_len, 256)]
+        self.labelpath = [self.labelpath[i: i+256] for i in range(0, all_len, 256)]
+        self.metapath = [self.metapath[i: i+256] for i in range(0, all_len, 256)]
+        self.scenename = [self.scenename[i: i+256] for i in range(0, all_len, 256)]
+        self.frameid = [self.frameid[i: i+256] for i in range(0, all_len, 256)]
 
         self.colorpath = np.array([np.array(x)[ALL_ANN_IDs] for x in self.colorpath])
         self.depthpath = np.array([np.array(x)[ALL_ANN_IDs] for x in self.depthpath])
@@ -34,20 +40,12 @@ class AroundViewDataset(GraspNetDataset):
         self.scenename = np.array([np.array(x)[ALL_ANN_IDs] for x in self.scenename])
         self.frameid = np.array([np.array(x)[ALL_ANN_IDs] for x in self.frameid])
 
-        import ipdb; ipdb.set_trace()
-
-
-    def __getitem__(self, index):
-        '''label: generate label after forward
-        '''
-        colors = []
-        for color in np.array(self.colorpath)[0][ALL_ANN_IDs]:
-            colors.append()
-        color = np.array(Image.open(self.colorpath[index]), dtype=np.float32) / 255.0
-        depth = np.array(Image.open(self.depthpath[index]))
-        seg = np.array(Image.open(self.labelpath[index]))
-        meta = scio.loadmat(self.metapath[index])
-        scene = self.scenename[index]
+    def _get_one_annid_data(self, scene_index, view_index,return_raw_cloud=False):
+        color = np.array(Image.open(self.colorpath[scene_index][view_index]), dtype=np.float32) / 255.0
+        depth = np.array(Image.open(self.depthpath[scene_index][view_index]))
+        seg = np.array(Image.open(self.labelpath[scene_index][view_index]))
+        meta = scio.loadmat(self.metapath[scene_index][view_index])
+        scene = self.scenename[scene_index][view_index]
         try:
             intrinsic = meta['intrinsic_matrix']
             factor_depth = meta['factor_depth']
@@ -65,7 +63,7 @@ class AroundViewDataset(GraspNetDataset):
         if self.remove_outlier:
             camera_poses = np.load(os.path.join(self.root, 'scenes', scene, self.camera, 'camera_poses.npy'))
             align_mat = np.load(os.path.join(self.root, 'scenes', scene, self.camera, 'cam0_wrt_table.npy'))
-            trans = np.dot(align_mat, camera_poses[self.frameid[index]])
+            trans = np.dot(align_mat, camera_poses[self.frameid[scene_index][view_index]])
             workspace_mask = get_workspace_mask(cloud, seg, trans=trans, organized=True, outlier=0.02)
             mask = (depth_mask & workspace_mask)
         else:
@@ -91,3 +89,23 @@ class AroundViewDataset(GraspNetDataset):
         ret_dict['cloud_colors'] = color_sampled.astype(np.float32)
 
         return ret_dict
+
+    def __getitem__(self, index):
+        '''label: generate label after forward
+        '''
+        one_scene_data = []
+        for view_id in range(VIEW_LEN):
+            one_scene_data.append(self._get_one_annid_data(scene_index=index, view_index=view_id))
+        return one_scene_data
+
+
+def collate_fn(batch):
+    if type(batch[0]).__module__ == 'numpy':
+        return torch.stack([torch.from_numpy(b) for b in batch], 0)
+    elif isinstance(batch[0][0], container_abcs.Mapping):
+        return collate_fn([[d['point_clouds'] for d in one_data] for one_data in batch])
+        # return {key: collate_fn([[d[key] for d in one_data] for one_data in batch]) for key in batch[0][0]}
+    elif isinstance(batch[0], container_abcs.Sequence):
+        return torch.from_numpy(np.array(batch))
+
+    raise TypeError("batch must contain tensors, dicts or lists; found {}".format(type(batch[0])))

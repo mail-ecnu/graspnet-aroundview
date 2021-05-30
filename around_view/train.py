@@ -17,8 +17,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(ROOT_DIR)
-from dataset.graspnet_dataset import collate_fn
-from around_view.utils.dataset import AroundViewDataset
+from around_view.utils.dataset import AroundViewDataset, collate_fn
 from around_view.models.loss import get_loss
 from around_view.models.rnn import RNNController
 
@@ -75,8 +74,8 @@ print(f'len(train loader) = {len(TRAIN_DATALOADER)};  len(test loader): {len(TES
 # Init the model and optimzier
 # net = GraspNet(input_feature_dim=0, num_view=cfgs.num_view, num_angle=12, num_depth=4,
 #                         cylinder_radius=0.05, hmin=-0.02, hmax_list=[0.01,0.02,0.03,0.04])
-net = RNNController()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+net = RNNController(device=device)
 net.to(device)
 optimizer = optim.Adam(net.parameters(), lr=cfgs.learning_rate, weight_decay=cfgs.weight_decay)
 
@@ -115,17 +114,7 @@ def train_one_epoch():
     net.train()
     for batch_idx, batch_data in enumerate(TRAIN_DATALOADER):
         # get data -> to(device)
-        print(len(TRAIN_DATALOADER))
-        import ipdb; ipdb.set_trace()
-        for key in batch_data:
-            if 'list' in key:
-                for i in range(len(batch_data[key])):
-                    for j in range(len(batch_data[key][i])):
-                        batch_data[key][i][j] = batch_data[key][i][j].to(device)
-            else:
-                batch_data[key] = batch_data[key].to(device)
-        
-        import ipdb; ipdb.set_trace()
+        batch_data = batch_data.to(device)
 
         # Forward pass
         end_views = net(batch_data)
