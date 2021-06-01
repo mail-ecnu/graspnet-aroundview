@@ -26,6 +26,7 @@ parser.add_argument('--dataset_root', required=True, help='Dataset root')
 parser.add_argument('--camera', required=True, help='Camera split [realsense/kinect]')
 parser.add_argument('--checkpoint_path', default=None, help='Model checkpoint path [default: None]')
 parser.add_argument('--log_dir', default='log', help='Dump dir to save model checkpoint [default: log]')
+parser.add_argument('--max_view', type=int, default=5, help='view index: [0, 256)')
 parser.add_argument('--num_point', type=int, default=20000, help='Point Number [default: 20000]')
 parser.add_argument('--num_view', type=int, default=300, help='View Number [default: 300]')
 parser.add_argument('--max_epoch', type=int, default=18, help='Epoch to run [default: 18]')
@@ -75,7 +76,7 @@ print(f'len(train loader) = {len(TRAIN_DATALOADER)};  len(test loader): {len(TES
 # net = GraspNet(input_feature_dim=0, num_view=cfgs.num_view, num_angle=12, num_depth=4,
 #                         cylinder_radius=0.05, hmin=-0.02, hmax_list=[0.01,0.02,0.03,0.04])
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-net = RNNController(device=device)
+net = RNNController(cfgs=cfgs, device=device)
 net.to(device)
 optimizer = optim.Adam(net.parameters(), lr=cfgs.learning_rate, weight_decay=cfgs.weight_decay)
 
