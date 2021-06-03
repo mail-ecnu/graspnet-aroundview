@@ -119,6 +119,7 @@ def train_one_epoch():
 
         # Forward pass
         end_views = net(batch_data)
+        import ipdb; ipdb.set_trace()
 
         ''' get label -> to(device)
         '''

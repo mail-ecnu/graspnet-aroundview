@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=2 python train.py \
+CUDA_VISIBLE_DEVICES=5 python train.py \
     --camera realsense \
     --log_dir logs/log_rs \
     --max_view 5 \
