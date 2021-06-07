@@ -59,10 +59,10 @@ class RNNController(nn.Module, ViewSelector):
         self.vt = nn.Linear(self.weight_size, 1, bias=False)                    # scaling sum of enc and dec by v.T
 
     def forward(self, batch_data):
-        bs = batch_data.shape[0]
+        scene_indexs, point_clouds = batch_data['scene_indexs'][:, :1], batch_data['point_clouds']
+        bs = scene_indexs.shape[0]
         bs_id = to_var(torch.arange(bs))
-                                  
-        # all_view_pool = to_var(torch.arange(VIEW_LEN)).repeat(bs, 1)
+
         all_view_pool = np.arange(VIEW_LEN)[np.newaxis, :].repeat(bs, axis=0)
         all_view_embb = self.enc(to_var(all_view_pool))
 
@@ -72,23 +72,23 @@ class RNNController(nn.Module, ViewSelector):
         cell_state = to_var(torch.zeros([bs, self.hidden_size]))    # (bs, h)
 
         probs = list()
-        for i in range(self.max_view):
+        for i in range(self.max_view-1):
             selected_view = torch.cat((selected_view, v), 1)      # [bs, i+1]
             left_idxs, left_views = self._get_left_views(all_view_pool, all_view_embb, selected_view)
             blend1 = self.W1(left_views)
 
-            view_data = batch_data[bs_id, v.view(-1)]
+            view_data = point_clouds[bs_id, v.view(-1)]
             view_feat = self.backbone(view_data)
             view_embb = all_view_embb[bs_id, v.view(-1)]
             dec_input = torch.cat((view_feat, view_embb), 1)
             hidden, cell_state = self.dec(dec_input, (hidden, cell_state))
             blend2 = self.W2(hidden)
 
-            blend_sum = F.tanh(blend1 + blend2.unsqueeze(1).repeat(1, left_idxs.shape[1], 1))   # (L, bs, W)
-            out = self.vt(blend_sum).squeeze()                                                  # (L, bs)
-            out = F.log_softmax(out)                                                            # (bs, L)
+            blend_sum = torch.tanh(blend1 + blend2.unsqueeze(1).repeat(1, left_idxs.shape[1], 1))   # (L, bs, W)
+            out = self.vt(blend_sum).squeeze()                                                      # (L, bs)
+            out = F.log_softmax(out, dim=1)                                                         # (bs, L)
             v = to_var(left_idxs)[bs_id, out.argmax(dim=1)].view(bs, -1)
-            probs.append(dict(view=v, idxs=left_idxs, prob=out))
+            probs.append(dict(scene=scene_indexs,view=v, idxs=left_idxs, prob=out))
 
         return probs
     

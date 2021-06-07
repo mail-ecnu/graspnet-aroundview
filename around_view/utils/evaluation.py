@@ -28,7 +28,9 @@ class AroundViewGraspEval(GraspNetEval):
             scene_acc_list.append(res)
         return scene_acc_list
 
-    def eval_scene(self, scene_id, dump_folder, TOP_K = 50, return_list = False,vis = False, max_width = 0.1):
+
+    def eval_scene(self, scene_id, dump_folder=None, views=None, grasp_group=None,
+                    TOP_K = 50, return_list = False,vis = False, max_width = 0.1):
         '''
         **Input:**
         - scene_id: int of the scene index.
@@ -58,10 +60,11 @@ class AroundViewGraspEval(GraspNetEval):
         score_list_list = []
         collision_list_list = []
 
-        dump_dir = os.path.join(dump_folder, get_scene_name(scene_id), self.camera)
-        views = np.load(os.path.join(dump_dir, f'{self.method}_views.npy'))
+        if dump_folder != None:
+            dump_dir = os.path.join(dump_folder, get_scene_name(scene_id), self.camera)
+            views = np.load(os.path.join(dump_dir, f'{self.method}_views.npy'))
+            grasp_group = AroundViewGraspGroup().from_npy(os.path.join(dump_dir, f'{self.method}_'), camera_poses_path)
         camera_poses_path = os.path.join(self.root, 'scenes', get_scene_name(scene_id), self.camera, 'camera_poses.npy')
-        grasp_group = AroundViewGraspGroup().from_npy(os.path.join(dump_dir, f'{self.method}_'), camera_poses_path)
 
         for ann_id in np.unique(grasp_group.ann_ids):
             sub_grasp_group = grasp_group[np.argwhere(grasp_group.ann_ids==ann_id).flatten()]
@@ -135,7 +138,8 @@ class AroundViewGraspEval(GraspNetEval):
                     grasp_accuracy[k,fric_idx] = np.sum(((score_list[0:k+1]<=fric) & (score_list[0:k+1]>0)).astype(int))/(k+1)
 
         # print('\rAccuracy for scene:%04d = %.3f' % (scene_id, 100.0 * np.mean(grasp_accuracy[:,:])))
-        print('\rAccuracy for scene:%04d = %.3f' % (scene_id, 100.0 * np.mean(grasp_accuracy[:,:])), end='', flush=True)
+        if dump_folder != None:
+            print('\rAccuracy for scene:%04d = %.3f' % (scene_id, 100.0 * np.mean(grasp_accuracy[:,:])), end='', flush=True)
         scene_accuracy.append(grasp_accuracy)
         if not return_list:
             return scene_accuracy

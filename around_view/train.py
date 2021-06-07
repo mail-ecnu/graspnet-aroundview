@@ -18,12 +18,14 @@ from torch.utils.tensorboard import SummaryWriter
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(ROOT_DIR)
 from around_view.utils.dataset import AroundViewDataset, collate_fn
-from around_view.models.loss import get_loss
 from around_view.models.rnn import RNNController
+from around_view.models.loss import LossComputer
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_root', required=True, help='Dataset root')
 parser.add_argument('--camera', required=True, help='Camera split [realsense/kinect]')
+parser.add_argument('--dump_dir', required=True, help='Dump dir to save outputs')
+parser.add_argument('--method', required=True, help='the method of selecting views')
 parser.add_argument('--checkpoint_path', default=None, help='Model checkpoint path [default: None]')
 parser.add_argument('--log_dir', default='log', help='Dump dir to save model checkpoint [default: log]')
 parser.add_argument('--max_view', type=int, default=5, help='view index: [0, 256)')
@@ -67,7 +69,7 @@ TRAIN_DATASET = AroundViewDataset(cfgs.dataset_root, camera=cfgs.camera, split='
 TEST_DATASET = AroundViewDataset(cfgs.dataset_root, camera=cfgs.camera, split='test_seen', num_points=cfgs.num_point, augment=False)
 print(f'len(train data) = {len(TRAIN_DATASET)};  len(test data): {len(TEST_DATASET)}')
 TRAIN_DATALOADER = DataLoader(TRAIN_DATASET, batch_size=cfgs.batch_size, shuffle=True,
-    num_workers=4, worker_init_fn=my_worker_init_fn, collate_fn=collate_fn)
+    num_workers=0, worker_init_fn=my_worker_init_fn, collate_fn=collate_fn)
 TEST_DATALOADER = DataLoader(TEST_DATASET, batch_size=cfgs.batch_size, shuffle=False,
     num_workers=4, worker_init_fn=my_worker_init_fn, collate_fn=collate_fn)
 print(f'len(train loader) = {len(TRAIN_DATALOADER)};  len(test loader): {len(TEST_DATALOADER)}')
@@ -79,6 +81,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 net = RNNController(cfgs=cfgs, device=device)
 net.to(device)
 optimizer = optim.Adam(net.parameters(), lr=cfgs.learning_rate, weight_decay=cfgs.weight_decay)
+losser = LossComputer(cfgs)
 
 # Load checkpoint if there is any
 start_epoch = 0
@@ -115,17 +118,17 @@ def train_one_epoch():
     net.train()
     for batch_idx, batch_data in enumerate(TRAIN_DATALOADER):
         # get data -> to(device)
-        batch_data = batch_data.to(device)
+        for key in batch_data:
+            batch_data[key] = batch_data[key].to(device)
 
         # Forward pass
         end_views = net(batch_data)
-        import ipdb; ipdb.set_trace()
 
-        ''' get label -> to(device)
-        '''
         # Compute loss and gradients, update parameters.
-        loss, end_views = get_loss(end_views)
+        loss, end_views = losser.get_loss(end_views)
+        import ipdb; ipdb.set_trace()
         loss.backward()
+        import ipdb; ipdb.set_trace()
         if (batch_idx+1) % 1 == 0:
             optimizer.step()
             optimizer.zero_grad()

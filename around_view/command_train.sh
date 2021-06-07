@@ -1,5 +1,7 @@
 CUDA_VISIBLE_DEVICES=5 python train.py \
     --camera realsense \
+    --dump_dir ../logs/dump_rs \
+    --method rl \
     --log_dir logs/log_rs \
     --max_view 5 \
     --batch_size 2 \

@@ -84,10 +84,11 @@ class AroundViewDataset(GraspNetDataset):
         cloud_sampled = cloud_masked[idxs]
         color_sampled = color_masked[idxs]
         
-        ret_dict = {}
-        ret_dict['point_clouds'] = cloud_sampled.astype(np.float32)
-        ret_dict['cloud_colors'] = color_sampled.astype(np.float32)
-
+        ret_dict = dict(
+            scene_indexs=scene_index,
+            point_clouds=cloud_sampled.astype(np.float32),
+            cloud_colors=color_sampled.astype(np.float32),
+        )
         return ret_dict
 
     def __getitem__(self, index):
@@ -103,8 +104,10 @@ def collate_fn(batch):
     if type(batch[0]).__module__ == 'numpy':
         return torch.stack([torch.from_numpy(b) for b in batch], 0)
     elif isinstance(batch[0][0], container_abcs.Mapping):
-        return collate_fn([[d['point_clouds'] for d in one_data] for one_data in batch])
-        # return {key: collate_fn([[d[key] for d in one_data] for one_data in batch]) for key in batch[0][0]}
+        return dict(
+            scene_indexs=collate_fn([[d['scene_indexs'] for d in one_data] for one_data in batch]),
+            point_clouds=collate_fn([[d['point_clouds'] for d in one_data] for one_data in batch]),
+        )
     elif isinstance(batch[0], container_abcs.Sequence):
         return torch.from_numpy(np.array(batch))
 
