@@ -128,7 +128,6 @@ def train_one_epoch():
         loss, end_views = losser.get_loss(end_views)
         import ipdb; ipdb.set_trace()
         loss.backward()
-        import ipdb; ipdb.set_trace()
         if (batch_idx+1) % 1 == 0:
             optimizer.step()
             optimizer.zero_grad()
