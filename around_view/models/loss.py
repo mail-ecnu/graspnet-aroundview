@@ -35,20 +35,19 @@ class LossComputer():
 
     def get_loss(self, end_views):
         scene_ids = [int (s) for s in end_views[0]['scene']]
+        batch_v_ids = torch.cat((to_var([[0],[0]]), torch.cat([v['v_id'] for v in end_views], dim=1)) , dim=1)
         batch_views = torch.cat((to_var([[0],[0]]), torch.cat([v['view'] for v in end_views], dim=1)) , dim=1)
         bs, seq_len = batch_views.shape
         all_rewards = self._compute_all_rewards(bs, seq_len, scene_ids, batch_views)
         all_q_value = self._compute_q_value(all_rewards)
-        print(batch_views)
 
         all_selected_logprobs = to_var(torch.empty(0))
         for step in range(seq_len-1):
             logprob = end_views[step]['prob']
-            batch_actions = batch_views[:, step:step+1]
+            batch_actions = batch_v_ids[:, step:step+1]
             batch_q_value = all_q_value[:, step:step+1]
 
             selected_logprobs = batch_q_value * torch.gather(logprob, 1, batch_actions)
             all_selected_logprobs = torch.cat((all_selected_logprobs, selected_logprobs), 1)
         loss = -all_selected_logprobs.mean()
-        import ipdb; ipdb.set_trace()
         return loss, end_views

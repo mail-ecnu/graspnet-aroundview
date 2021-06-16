@@ -87,8 +87,9 @@ class RNNController(nn.Module, ViewSelector):
             blend_sum = torch.tanh(blend1 + blend2.unsqueeze(1).repeat(1, left_idxs.shape[1], 1))   # (L, bs, W)
             out = self.vt(blend_sum).squeeze()                                                      # (L, bs)
             out = F.log_softmax(out, dim=1)                                                         # (bs, L)
+            v_id = out.argmax(dim=1).view(bs, -1)
             v = to_var(left_idxs)[bs_id, out.argmax(dim=1)].view(bs, -1)
-            probs.append(dict(scene=scene_indexs,view=v, idxs=left_idxs, prob=out))
+            probs.append(dict(scene=scene_indexs, v_id=v_id, view=v, views=left_idxs, prob=out))
 
         return probs
     

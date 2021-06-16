@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=5 python train.py \
+CUDA_VISIBLE_DEVICES=2 python train.py \
     --camera realsense \
     --dump_dir ../logs/dump_rs \
     --method rl \
