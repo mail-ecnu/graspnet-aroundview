@@ -51,10 +51,12 @@ CHECKPOINT_PATH = cfgs.checkpoint_path if cfgs.checkpoint_path is not None \
 if not os.path.exists(cfgs.log_dir):
     os.makedirs(cfgs.log_dir)
 
-LOG_FOUT = open(os.path.join(cfgs.log_dir, 'log_train.txt'), 'a')
-LOG_FOUT.write(str(cfgs)+'\n')
+log_file_name = str(datetime.now())[:-7].replace(':', '_').replace(' ', '-')
+LOG_FOUT = open(os.path.join(cfgs.log_dir, f'{log_file_name}.txt'), 'a')
+LOG_FOUT.write('Configs:\n\t' + str(cfgs).replace(' ', '\n\t')[10:-1]+'\n')
 def log_string(out_str):
-    out_str = f'[{str(datetime.now())}] {out_str}'
+    str_time = str(datetime.now()).split('.')[0]
+    out_str = f'[{str_time}] {out_str}'
     LOG_FOUT.write(out_str+'\n')
     LOG_FOUT.flush()
     print(out_str)
@@ -75,8 +77,6 @@ TEST_DATALOADER = DataLoader(TEST_DATASET, batch_size=cfgs.batch_size, shuffle=F
 print(f'len(train loader) = {len(TRAIN_DATALOADER)};  len(test loader): {len(TEST_DATALOADER)}')
 
 # Init the model and optimzier
-# net = GraspNet(input_feature_dim=0, num_view=cfgs.num_view, num_angle=12, num_depth=4,
-#                         cylinder_radius=0.05, hmin=-0.02, hmax_list=[0.01,0.02,0.03,0.04])
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 net = RNNController(cfgs=cfgs, device=device)
 net.to(device)
@@ -100,10 +100,12 @@ def get_current_lr(epoch):
             lr *= LR_DECAY_RATES[i]
     return lr
 
-def adjust_learning_rate(optimizer, epoch):
+def adjust_learning_rate(optimizer, epoch, stat_dict):
     lr = get_current_lr(epoch)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
+    stat_dict['lr'] = lr
+    return stat_dict
 
 # TensorBoard Visualizers
 TRAIN_WRITER = SummaryWriter(os.path.join(cfgs.log_dir, 'train'))
@@ -111,42 +113,43 @@ TEST_WRITER = SummaryWriter(os.path.join(cfgs.log_dir, 'test'))
 
 # ------------------------------------------------------------------------- GLOBAL CONFIG END
 
+def accumulate_statistics(infos, stat_dict):
+    # Accumulate statistics and print out
+    for key in infos:
+        if 'loss' in key or 'mAP' in key or 'reward' in key:
+            if key not in stat_dict: stat_dict[key] = 0
+            stat_dict[key] += infos[key]
+    return stat_dict
+
+def log_statistics(tag_str, interval, stat_dict, writer, step, log_str=''):
+    log_str += f'({tag_str}) '
+    for key in sorted(stat_dict.keys()):
+        value = round(1.0 * stat_dict[key] / interval, 2)
+        writer.add_scalar(key, value, step)
+        log_str += f'{key}: {value}, '
+        stat_dict[key] = 0
+    log_string(log_str)
+
 def train_one_epoch():
     stat_dict = {} # collect statistics
-    adjust_learning_rate(optimizer, EPOCH_CNT)
+    stat_dict = adjust_learning_rate(optimizer, EPOCH_CNT, stat_dict)
     # set model to training mode
     net.train()
     for batch_idx, batch_data in enumerate(TRAIN_DATALOADER):
-        # get data -> to(device)
-        for key in batch_data:
-            batch_data[key] = batch_data[key].to(device)
-
-        # Forward pass
+        batch_data['point_clouds'] = batch_data['point_clouds'].to(device)
         end_views = net(batch_data)
-
-        # Compute loss and gradients, update parameters.
-        loss, end_views = losser.get_loss(end_views)
-        try:
-            loss.backward()
-        except:
-            import ipdb; ipdb.set_trace()
+        loss, infos = losser.get_loss(end_views)
+        loss.backward()
         if (batch_idx+1) % 1 == 0:
             optimizer.step()
             optimizer.zero_grad()
+        stat_dict = accumulate_statistics(infos, stat_dict)
 
-        # Accumulate statistics and print out
-        for key in end_views:
-            if 'loss' in key or 'acc' in key or 'prec' in key or 'recall' in key or 'count' in key:
-                if key not in stat_dict: stat_dict[key] = 0
-                stat_dict[key] += end_views[key].item()
-
-        batch_interval = 10
-        if (batch_idx+1) % batch_interval == 0:
-            log_string(' ---- batch: %03d ----' % (batch_idx+1))
-            for key in sorted(stat_dict.keys()):
-                TRAIN_WRITER.add_scalar(key, stat_dict[key]/batch_interval, (EPOCH_CNT*len(TRAIN_DATALOADER)+batch_idx)*cfgs.batch_size)
-                log_string('mean %s: %f'%(key, stat_dict[key]/batch_interval))
-                stat_dict[key] = 0
+        interval = 10
+        if (batch_idx+1) % interval == 0:
+            step = (EPOCH_CNT*len(TRAIN_DATALOADER)+batch_idx)*cfgs.batch_size
+            log_str = f'({batch_idx}/{len(TRAIN_DATALOADER)})'
+            log_statistics('train', 10, stat_dict, TRAIN_WRITER, step, log_str)
 
 def evaluate_one_epoch():
     stat_dict = {} # collect statistics
@@ -155,32 +158,16 @@ def evaluate_one_epoch():
     for batch_idx, batch_data in enumerate(TEST_DATALOADER):
         if batch_idx % 10 == 0:
             print('Eval batch: %d'%(batch_idx))
-        for key in batch_data:
-            if 'list' in key:
-                for i in range(len(batch_data[key])):
-                    for j in range(len(batch_data[key][i])):
-                        batch_data[key][i][j] = batch_data[key][i][j].to(device)
-            else:
-                batch_data[key] = batch_data[key].to(device)
-        
-        # Forward pass
+        batch_data['point_clouds'] = batch_data['point_clouds'].to(device)
         with torch.no_grad():
             end_views = net(batch_data)
+        loss, infos = losser.get_loss(end_views)
+        stat_dict = accumulate_statistics(infos, stat_dict)
 
-        # Compute loss
-        loss, end_views = get_loss(end_views)
-
-        # Accumulate statistics and print out
-        for key in end_views:
-            if 'loss' in key or 'acc' in key or 'prec' in key or 'recall' in key or 'count' in key:
-                if key not in stat_dict: stat_dict[key] = 0
-                stat_dict[key] += end_views[key].item()
-
-    for key in sorted(stat_dict.keys()):
-        TEST_WRITER.add_scalar(key, stat_dict[key]/float(batch_idx+1), (EPOCH_CNT+1)*len(TRAIN_DATALOADER)*cfgs.batch_size)
-        log_string('eval mean %s: %f'%(key, stat_dict[key]/(float(batch_idx+1))))
-
-    mean_loss = stat_dict['loss/overall_loss']/float(batch_idx+1)
+    interval = len(TEST_DATALOADER)
+    step = (EPOCH_CNT+1)*len(TRAIN_DATALOADER)*cfgs.batch_size
+    log_statistics('val', interval, stat_dict, TEST_WRITER, step)
+    mean_loss = 1.0 * stat_dict['loss'] / interval
     return mean_loss
 
 
@@ -188,8 +175,7 @@ def train(start_epoch):
     global EPOCH_CNT
     for epoch in range(start_epoch, cfgs.max_epoch):
         EPOCH_CNT = epoch
-        log_string('**** EPOCH %03d ****' % (epoch))
-        log_string('Current learning rate: %f'%(get_current_lr(epoch)))
+        log_string('******** EPOCH %03d ********' % (epoch+1))
         # log_string(str(datetime.now()))
         # Reset numpy seed.
         # REF: https://github.com/pytorch/pytorch/issues/5059
