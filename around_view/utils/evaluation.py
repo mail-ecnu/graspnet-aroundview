@@ -28,7 +28,6 @@ class AroundViewGraspEval(GraspNetEval):
             scene_acc_list.append(res)
         return scene_acc_list
 
-
     def eval_scene(self, scene_id, dump_folder=None, views=None, grasp_group=None,
                     TOP_K = 50, return_list = False,vis = False, max_width = 0.1):
         '''

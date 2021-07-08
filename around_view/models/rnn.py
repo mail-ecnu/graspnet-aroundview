@@ -30,7 +30,8 @@ class PreMLP(nn.Module):
         ''' x: seed_features of `b * [256, 1024]`
             out: features of `b * [out_dim]`
         '''
-        point_feature, _, _ = self.w0(pointcloud)
+        # point_feature, _, _ = self.w0(pointcloud)
+        point_feature = pointcloud
         feature_point = point_feature.permute(0, 2, 1)          # b, dim_in, point
         feature = self.w1(feature_point).squeeze()        # b, dim_in
         return self.w2(feature)               # b, dim_out
@@ -59,7 +60,7 @@ class RNNController(nn.Module, ViewSelector):
         self.vt = nn.Linear(self.weight_size, 1, bias=False)                    # scaling sum of enc and dec by v.T
 
     def forward(self, batch_data):
-        scene_indexs, point_clouds = batch_data['scene_indexs'][:, :1], batch_data['point_clouds']
+        scene_indexs, point_clouds = batch_data['scene_index'][:, :1], batch_data['cloud_feats']
         bs = scene_indexs.shape[0]
         bs_id = to_var(torch.arange(bs))
 

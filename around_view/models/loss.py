@@ -9,6 +9,8 @@ from ..utils.dataset import ALL_ANN_IDs
 
 class LossComputer():
     def __init__(self, cfgs):
+        self.author_tag = 'RL'
+
         self.detector = GraspDetector(cfgs.dataset_root, cfgs.dump_dir, cfgs.camera)
         self.mixer = GraspMixer()
         self.eval = AroundViewGraspEval(cfgs.dataset_root, cfgs.camera, 'train', cfgs.method)
@@ -27,7 +29,7 @@ class LossComputer():
                 seq_accs.append(acc)
             eval_acc += seq_accs[-1]
             rewards.append(np.diff(seq_accs, n=1))
-        infos.update({'mAP': 1.0 * eval_acc / bs,})
+        infos.update({f'{self.author_tag}/mAP': 1.0 * eval_acc / bs,})
         return np.array(rewards), infos
 
     def _compute_q_value(self, all_rewards):
@@ -53,16 +55,19 @@ class LossComputer():
 
             selected_logprobs = batch_q_value * torch.gather(logprob, 1, batch_actions)
             all_selected_logprobs = torch.cat((all_selected_logprobs, selected_logprobs), 1)
-        loss = -all_selected_logprobs.mean()        
+        print(all_selected_logprobs)
+        assert len(all_selected_logprobs) > 0
+        loss = -all_selected_logprobs.mean()
+
         try:
             loss_value = float(loss)
         except:
-            print(all_selected_logprobs)
-            print('loss: ', loss)
+            # print(all_selected_logprobs)
+            # print('loss: ', loss)
             import ipdb; ipdb.set_trace()
 
         infos.update({
-            'loss': loss_value,
-            'reward': float(np.sum(all_rewards, axis=1).mean()),
+            f'{self.author_tag}/loss': loss_value,
+            f'{self.author_tag}/reward': float(np.sum(all_rewards, axis=1).mean()),
         })
         return loss, infos
