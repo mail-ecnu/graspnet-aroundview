@@ -138,7 +138,6 @@ class AroundViewFeatureDataset(AroundViewDataset):
     def __init__(self, root, camera, split='train', num_points=20000, augment=False):
         super().__init__(root, camera, split=split, num_points=20000, augment=False)
         self.generate_feature(root, camera)
-        
 
     def generate_feature(self, root, camera):
         self.featspath = list()

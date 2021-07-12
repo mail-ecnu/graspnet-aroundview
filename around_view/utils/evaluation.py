@@ -9,6 +9,7 @@ from graspnetAPI.utils.utils import generate_scene_model
 from graspnetAPI.utils.eval_utils import get_scene_name, create_table_points, voxel_sample_points, transform_points, eval_grasp
 
 from around_view.utils.grasp import AroundViewGrasp, AroundViewGraspGroup
+from .dataset import ALL_ANN_IDs
 
 
 class AroundViewGraspEval(GraspNetEval):
@@ -60,10 +61,10 @@ class AroundViewGraspEval(GraspNetEval):
         collision_list_list = []
 
         if dump_folder != None:
+            camera_poses_path = os.path.join(self.root, 'scenes', get_scene_name(scene_id), self.camera, 'camera_poses.npy')
             dump_dir = os.path.join(dump_folder, get_scene_name(scene_id), self.camera)
             views = np.load(os.path.join(dump_dir, f'{self.method}_views.npy'))
             grasp_group = AroundViewGraspGroup().from_npy(os.path.join(dump_dir, f'{self.method}_'), camera_poses_path)
-        camera_poses_path = os.path.join(self.root, 'scenes', get_scene_name(scene_id), self.camera, 'camera_poses.npy')
 
         for ann_id in np.unique(grasp_group.ann_ids):
             sub_grasp_group = grasp_group[np.argwhere(grasp_group.ann_ids==ann_id).flatten()]
@@ -136,15 +137,38 @@ class AroundViewGraspEval(GraspNetEval):
                 else:
                     grasp_accuracy[k,fric_idx] = np.sum(((score_list[0:k+1]<=fric) & (score_list[0:k+1]>0)).astype(int))/(k+1)
 
-        # print('\rAccuracy for scene:%04d = %.3f' % (scene_id, 100.0 * np.mean(grasp_accuracy[:,:])))
-        # print('\rAccuracy for scene:%04d = %.3f' % (scene_id, 100.0 * np.mean(grasp_accuracy[:,:])), end='', flush=True)
         if dump_folder != None:
             print('\rAccuracy for scene:%04d = %.3f' % (scene_id, 100.0 * np.mean(grasp_accuracy[:,:])), end='', flush=True)
+        else:
+            # pass
+            print('\rAccuracy for scene:%04d = %.3f' % (scene_id, 100.0 * np.mean(grasp_accuracy[:,:])))
         scene_accuracy.append(grasp_accuracy)
         if not return_list:
             return scene_accuracy
         else:
             return scene_accuracy, grasp_list_list, score_list_list, collision_list_list
+
+    def views2filename(self, views):
+        ans = ''
+        for v in views:
+            ans += hex(v)[-1]
+        return ans + '.npy'
+
+    def continuous_eval_scene(self, scene_id, views, grasp_group):
+        eval_dir = os.path.join(self.root, 'scenes', get_scene_name(scene_id), self.camera, 'av_eval')
+        if not os.path.exists(eval_dir):
+            os.mkdir(eval_dir)
+
+        eval_path = os.path.join(eval_dir, self.views2filename(views))
+        if not os.path.exists(eval_path):
+            ann_ids = ALL_ANN_IDs[views]
+            scene_accuracy = self.eval_scene(scene_id, views=ann_ids, grasp_group=grasp_group)[0]
+            np.save(eval_path, scene_accuracy)
+        else:
+            print(f'views: {views}, got...')
+
+        scene_accuracy = np.load(eval_path)
+        return np.mean(scene_accuracy)
 
     def eval_seen(self, dump_folder, proc = 2):
         '''

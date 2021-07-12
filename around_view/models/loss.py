@@ -16,6 +16,8 @@ class LossComputer():
         self.eval = AroundViewGraspEval(cfgs.dataset_root, cfgs.camera, 'train', cfgs.method)
 
     def _compute_all_rewards(self, bs, seq_len, scene_ids, batch_views, infos):
+        batch_views = batch_views.cpu().numpy()
+        
         rewards = list()
         eval_acc = 0
         for b in range(bs):
@@ -24,8 +26,7 @@ class LossComputer():
                 grasp_group = self.detector.views2grasps(scene_ids[b], batch_views[b][:s+1])
                 grasp_group = self.mixer.mix_grasps(grasp_group)
                 views = batch_views[b][:s+1]
-                ann_ids = ALL_ANN_IDs[views.cpu()]
-                acc = np.mean(self.eval.eval_scene(scene_ids[b], views=ann_ids, grasp_group=grasp_group)[0])
+                acc = self.eval.continuous_eval_scene(scene_ids[b], views, grasp_group)
                 seq_accs.append(acc)
             eval_acc += seq_accs[-1]
             rewards.append(np.diff(seq_accs, n=1))
@@ -48,14 +49,17 @@ class LossComputer():
         all_q_value = self._compute_q_value(all_rewards)
 
         all_selected_logprobs = to_var(torch.empty(0))
-        for step in range(seq_len-1):
-            logprob = end_views[step]['prob']
-            batch_actions = batch_v_ids[:, step:step+1]
-            batch_q_value = all_q_value[:, step:step+1]
+        for _step in range(seq_len-1):
+            logprob = end_views[_step]['prob']
+            batch_actions = batch_v_ids[:, _step+1:_step+2]
+            batch_q_value = all_q_value[:, _step+1:_step+2]
 
-            selected_logprobs = batch_q_value * torch.gather(logprob, 1, batch_actions)
+            try:
+                selected_logprobs = batch_q_value * torch.gather(logprob, 1, batch_actions)
+            except:
+                import ipdb; ipdb.set_trace()
             all_selected_logprobs = torch.cat((all_selected_logprobs, selected_logprobs), 1)
-        print(all_selected_logprobs)
+        # print(all_selected_logprobs)
         assert len(all_selected_logprobs) > 0
         loss = -all_selected_logprobs.mean()
 
